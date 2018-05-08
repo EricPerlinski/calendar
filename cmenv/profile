@@ -1,0 +1,8 @@
+#! /bin/bash 
+
+export CALENDAR_ROOT="${SOURCES_DIR}/calendar"
+export CALENDAR_BUILD="${CALENDAR_ROOT}/build"
+export CALENDAR_LOGS="${CALENDAR_ROOT}/logs"
+export CALENDAR_HTML="${CALENDAR_ROOT}/html"
+export CALENDAR_BIN="${CALENDAR_ROOT}/bin"
+export CALENDAR_SSL="${CALENDAR_ROOT}/ssl"
