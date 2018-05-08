@@ -1,10 +1,25 @@
 <html> 
 <head>
 </head>
-<body>Hi !<br/>
+<body>
+
+{{if .Connected}}
+Hello {{.Username}} ! You've successfully logged in ! <br/>
+
+Please disconnect using this button : <br />
+<form action="/logout/">
+	<input type="submit" value="logout"/>
+</form>
+{{else}}
+Hello dear user !<br/>
 <br/>
-<a href="/login"> Click to login ! </a><br />
+Please login : 
+<form action="/login/">
+	<input type="submit" value="login"/>
+</form>
 <br/>
-bla
+{{end}}
+
+
 </body>
 </html>

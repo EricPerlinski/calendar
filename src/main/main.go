@@ -8,6 +8,7 @@ import (
 	"html/template"
 	"net/http"
 	"log"
+	"time"
 )
 
 var (
@@ -18,21 +19,45 @@ var (
 	PUBLIC_KEY = SSL_DIR+"/cert.pem"
 )
 
+type loginData struct {
+	Connected bool
+	Username  string
+}
 
 func rootHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Somebody connected")
 	http.Redirect(w,r, "/index/", http.StatusSeeOther)
 }
 
+func logoutHandler(w http.ResponseWriter, r*http.Request) {
+	fmt.Println("User disconnected")
+	c := &http.Cookie{
+		Name : "username",
+		Value : "",
+		Path : "/",
+		MaxAge: -1}
+	http.SetCookie(w, c)
+	http.Redirect(w,r, "/index/", http.StatusSeeOther)
+}
+
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Somebody is in index !")
+
+	cookie, checkCookie := r.Cookie("username")
+
+	var data loginData
+
+	if checkCookie == nil {
+		data=loginData{true, cookie.Value}
+	} else {
+		data=loginData{false, ""}
+	}
+
 	templateFile := template.Must(template.ParseFiles("templates/index.tmpl"))
-	
-	
-	err := templateFile.Execute(w, nil)
+	err := templateFile.Execute(w,data)
 	if err != nil {
-		fmt.Println("Error while executing template ! " + err.Error())
-		fmt.Fprint(w, "Error while executing template !")
+		fmt.Println("Error while executing template [index]" + err.Error())
+		fmt.Fprint(w, "Error while executing template [index]")
 	}
 
 }
@@ -40,29 +65,49 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 func loginHandler(w http.ResponseWriter, r *http.Request) {
 	
 	fmt.Println(r.Method)
-	templateFile := template.Must(template.ParseFiles("templates/login.tmpl"))
-	
-	err := templateFile.Execute(w, nil)
-	if err != nil {
-		fmt.Println("Error while executing template ! " + err.Error())
-		fmt.Fprint(w, "Error while executing template ! " + err.Error())
-	}
-	
+
 	switch r.Method {
 
 	case "GET" :  
 		fmt.Println("About to login !")
+		templateFile := template.Must(template.ParseFiles("templates/login.tmpl"))
+		err := templateFile.Execute(w,nil)
+		if err != nil {
+			fmt.Println("Error while executing template [login]" + err.Error())
+			fmt.Fprint(w, "Error while executing template [login]")
+		}
 	case "POST" :	
 		fmt.Println("Checking logging !")
-		if r.Method == "POST" {
-			r.ParseForm()
-			fmt.Println("username:" , r.Form["username"])
-			fmt.Println("password:" , r.Form["password"])
+		
+		r.ParseForm()
+		
+		okForm := checkAndStoreCredentials(w, r.FormValue("username"), r.FormValue("password"))
+		 
+		if okForm == true {
+			http.Redirect(w, r, "/index/", http.StatusSeeOther)
+		} else {
+			templateFile := template.Must(template.ParseFiles("templates/login.tmpl"))
+			err := templateFile.Execute(w,nil)
+			if err != nil {
+				fmt.Println("Error while executing template [login]" + err.Error())
+				fmt.Fprint(w, "Error while executing template [login]")
+			}
 		}
 	default:
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
+}
+
+func checkAndStoreCredentials(w http.ResponseWriter, username string, password string) (okForm bool) {
+
+	fmt.Println("Username["+username+"]")
+	fmt.Println("Password["+password+"]")
+	expiration := time.Now().Add(365 * 24 * time.Hour)
+	cookie := http.Cookie{Name : "username", Value : username, Expires: expiration, Path : "/"}
+	http.SetCookie(w,&cookie)
+	
+	return true
 }
 
 func Run() chan error {
@@ -96,7 +141,7 @@ func main() {
 	http.HandleFunc("/", rootHandler)
 	http.HandleFunc("/index/", indexHandler)
 	http.HandleFunc("/login/", loginHandler)
-	
+	http.HandleFunc("/logout/", logoutHandler)
 	http.Handle("/templates/", http.StripPrefix("/templates/", http.FileServer(http.Dir("templates"))))
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	// Launch server
